@@ -1,0 +1,60 @@
+# encoding: utf-8
+require 'nokogiri'
+require 'open-uri'
+require 'uri'
+require 'terminal-table'
+
+url = 'http://explainshell.com/explain?cmd='
+
+def get_content(url)
+  rows = []
+  index = {}
+  cmd = []
+  color = [ "\e[0;96;49m", 
+            "\e[0;95;49m", 
+            "\e[0;94;49m", 
+            "\e[0;92;49m", 
+            "\e[0;91;49m", 
+            "\e[0;93;49m",
+            "\e[0;36;49m",
+            "\e[0;35;49m",
+            "\e[0;34;49m",
+            "\e[0;32;49m",
+            "\e[0;31;49m",
+            "\e[0;33;49m"
+          ]
+  begin
+    doc = Nokogiri::HTML(open(url).read.strip)
+    abort "\e[0;91;49mMissing man page, abort!\e[0m" if doc.content =~ /missing man page/
+    i = 0
+    doc.xpath('//span').each do |l|
+      if l.get_attribute("helpref") =~ /^help*/
+        index[l.get_attribute("helpref")] = "#{color[i%12]}#{l.content}\e[0m"
+        cmd << "#{color[i%12]}#{l.content}\e[0m"
+        i += 1
+      end
+    end
+    doc.xpath('//pre').each do |l|
+      if l.get_attribute('id') =~ /^(help*)/
+        next if l.content =~ /Pipelines/
+        rows << [index[l.get_attribute('id')]]
+        rows << [l.content]
+        rows << :separator
+      end
+    end
+  rows.pop
+  table = Terminal::Table.new :rows => rows
+  puts ""
+  puts cmd.join(" ")
+  puts table
+  rescue => err
+    puts err
+    return {}
+  end
+end
+
+
+#run
+print "cmd>> "
+input = URI::escape(gets.strip).gsub(/&/, "%26")
+get_content(url+input)
